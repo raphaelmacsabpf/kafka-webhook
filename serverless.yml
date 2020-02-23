@@ -1,0 +1,18 @@
+service: microservices
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+
+plugins:
+  - serverless-offline
+
+functions:
+   webhook-api:
+    handler: src/api/webhook-lambda.handler
+    events:
+      - http: 
+          method: any
+          path: /{proxy+}
+          cors: true
+          authorizer: aws_iam
