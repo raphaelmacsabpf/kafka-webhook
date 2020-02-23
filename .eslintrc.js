@@ -16,5 +16,6 @@ module.exports = {
     "rules": {
         "semi": ["error", "always"],
         "quotes": [2, "single", { "avoidEscape": true }],
-    }
+        "no-unused-vars": ["error", { "vars": "all", "args": "none"}],
+    },
 };
