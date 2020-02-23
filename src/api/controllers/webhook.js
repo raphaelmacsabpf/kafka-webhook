@@ -1,5 +1,8 @@
+const webhookService = require('../services/webhook');
+
 class WebhookController {
-    post(req, res) {
+    async post(req, res) {
+        await webhookService.enqueueWebhook();
         res.json({ok: true});
     }
 }

@@ -1,11 +1,11 @@
 const serverless = require('serverless-http');
 const express = require('express');
-const WebhookController = require('./controllers/webhook');
+const webhookController = require('./controllers/webhook');
 
 const app = express();
 const router = express.Router();
 
-router.post('/webhook', WebhookController.post);
+router.post('/webhook', webhookController.post);
 
 app.use(router);
 
