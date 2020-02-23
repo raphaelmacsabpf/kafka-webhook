@@ -1,5 +1,5 @@
 const kafka = require('kafka-node');
-const kafkaClient = kafka.kafkaClient({kafkaHost: process.env.KAFKA_HOST});
+const kafkaClient = new kafka.KafkaClient({kafkaHost: process.env.KAFKA_HOST});
 const kafkaProducer = new kafka.Producer(kafkaClient);
 
 const KAFKA_TOPIC = 'pending-webhooks';
@@ -11,9 +11,16 @@ class WebhookService {
             messages: {path, body, headers}
         };
         
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             kafkaProducer.send([payload], (err, data) => {
-                resolve();
+                if(err) {
+                    console.log(err);
+                    reject();
+                }
+                else  {
+                    console.log(data);
+                    resolve();
+                }
             });
         });
     }
