@@ -1,4 +1,4 @@
-const webhookService = require('../services/webhook');
+const webhookService = require('../../services/webhook');
 
 class WebhookController {
     async post(req, res) {
