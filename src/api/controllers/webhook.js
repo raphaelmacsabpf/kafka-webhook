@@ -5,7 +5,6 @@ class WebhookController {
         const path = req.body.path;
         const body = req.body.body;
         const headers = req.body.headers;
-
         await webhookService.enqueueWebhook(path, body, headers);
         res.json({ok: true});
     }

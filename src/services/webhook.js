@@ -1,14 +1,18 @@
 const kafka = require('kafka-node');
-const kafkaClient = new kafka.KafkaClient({kafkaHost: process.env.KAFKA_HOST});
-const kafkaProducer = new kafka.Producer(kafkaClient);
 
 const KAFKA_TOPIC = 'pending-webhooks';
 
+const kafkaClient = new kafka.KafkaClient({kafkaHost: process.env.KAFKA_HOST});
+const kafkaProducer = new kafka.Producer(kafkaClient, {
+    partitionerType: 2 /* cyclic partitioner */
+});
+
 class WebhookService {
     async enqueueWebhook(path, body, headers) {
+        //const partition = Math.floor(Math.random() * 3);
         const payload = {
             topic: KAFKA_TOPIC,
-            messages: {path, body, headers}
+            messages: JSON.stringify({id: Date.now(), path, body, headers}),
         };
         
         return new Promise((resolve, reject) => {

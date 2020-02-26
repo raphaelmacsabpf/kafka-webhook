@@ -8,11 +8,13 @@ plugins:
   - serverless-offline
 
 functions:
-   webhook-api:
-    handler: src/api/webhook-lambda.handler
+  webhook-api:
+    handler: src/api/lambda.handler
     events:
       - http: 
           method: any
           path: /{proxy+}
           cors: true
           authorizer: aws_iam
+  delivery:
+    handler: src/delivery/lambda.handler
