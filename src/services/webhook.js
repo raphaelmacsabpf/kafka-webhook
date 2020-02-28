@@ -9,7 +9,6 @@ const kafkaProducer = new kafka.Producer(kafkaClient, {
 
 class WebhookService {
     async enqueueWebhook(path, body, headers) {
-        //const partition = Math.floor(Math.random() * 3);
         const payload = {
             topic: KAFKA_TOPIC,
             messages: JSON.stringify({id: Date.now(), path, body, headers}),

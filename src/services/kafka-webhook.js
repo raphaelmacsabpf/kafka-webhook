@@ -1,10 +1,12 @@
 'use strict';
 
+const EventEmitter = require('events');
 const kafka = require('kafka-node');
 const webhookService = require('../services/webhook');
 
-class KafkaWebhookService {
+class KafkaWebhookService extends EventEmitter {
     constructor(topic, executeJob) {
+        super();
         const kafkaDefaultOptions = {
             kafkaHost: '127.0.0.1:9092',
             groupId: '123456', /* All consumers with same groupId will fetch messages from different partitions */
@@ -19,11 +21,9 @@ class KafkaWebhookService {
         };
 
         this.kafkaConsumer = new kafka.ConsumerGroup(kafkaDefaultOptions, topic);
-        this.closed = false;
-        this.messageCount = 0;
-        this.finishedMessages = 0;
-        this.successMessages = 0;
-        this.lastMessage = Date.now();
+        this.consumerPaused = false;
+        this.pendingMessages = 0;
+        this.lastMessageTimestamp = Date.now();
         this.executeJob = executeJob;
 
         handleConsumerState.call(this);
@@ -41,14 +41,13 @@ function addKafkaListeners() {
 }
 
 async function onMessage(message) {
-    this.lastMessage = Date.now();
-    if(this.closed) {
-        console.log(`Closed received [${this.messageCount}], partition: ${message.partition}`);
-    }
-    this.messageCount ++;
-    console.log(`Received message[${this.messageCount}], partition: ${message.partition}, offset: ${message.offset}`);
-    if(this.messageCount % 100 == 0 && this.closed == false) {
-        this.closed = true;
+    this.lastMessageTimestamp = Date.now();
+    this.pendingMessages ++;
+    console.log(`Received message, partition: ${message.partition}, offset: ${message.offset}`);
+    
+    if(consumerHasToPauseWork.call(this)) {
+        console.log('Consumer paused');
+        this.consumerPaused = true;
         setTimeout(() => {
             this.kafkaConsumer.pause();
         }, 1);
@@ -59,32 +58,45 @@ async function onMessage(message) {
         await webhookService.enqueueWebhook(message.value.path, message.value.body, message.value.headers);
     });
 
+    this.pendingMessages --;
     console.log(`Finished, partition: ${message.partition}, offset: ${message.offset}`);
-    this.successMessages ++;
-    this.finishedMessages ++;
 }
 
 function handleConsumerState() {
-    const interval = setInterval(() => {
-        const now = Date.now();
-        if(this.closed && this.messageCount > 0 && now - this.lastMessage > 1000 && this.messageCount == this.finishedMessages) {
-            this.closed = false;
+    const checkIntervalRef = setInterval(() => {
+        if(consumerHasToResumeWork.call(this)) {
+            this.consumerPaused = false;
             this.kafkaConsumer.resume();
-            console.log(`Resumed, but the total success is: ${this.successMessages}`);
-            if(now - this.lastMessage > 60000) {
-                console.log(`Strategic close, lastMessage: ${now}`);
-                this.kafkaConsumer.close(true, consumerCloseError => {
-                    console.log(`Done, with finishedMessages: ${this.finishedMessages}, success: ${this.successMessages}`);
-                    this.kafkaConsumer.client.close(clientCloseError => {
-                        console.log(`Kafka client closed: ${JSON.stringify(clientCloseError)}`);
-                        clearInterval(interval);
-                    });
-                });
-            }
+            console.log('Consumer resumed');
        }
+       handleConsumerClosingStrategy.call(this, checkIntervalRef);
     }, 100);
 }
 
-module.exports = function(topic, executeJob) {
-    return new KafkaWebhookService(topic, executeJob);
-};
+function consumerHasToResumeWork() {    
+    return this.consumerPaused
+           && (Date.now() - this.lastMessageTimestamp) > 1000 
+           && this.pendingMessages <= 50;
+}
+
+function consumerHasToPauseWork() {
+    return this.pendingMessages >= 100 
+          && this.consumerPaused == false;
+}
+
+function handleConsumerClosingStrategy(checkIntervalRef) {
+    const consumerHasToCloseWorker = (Date.now() - this.lastMessageTimestamp) > 60000;
+
+    if(consumerHasToCloseWorker) {
+        console.log('Closing worker');
+        this.kafkaConsumer.close(true, consumerCloseError => {
+            this.kafkaConsumer.client.close(clientCloseError => {
+                console.log(`Kafka client consumerPaused: ${JSON.stringify(clientCloseError)}`);
+                clearInterval(checkIntervalRef);
+                this.emit('closed');
+            });
+        });
+    }
+}
+
+module.exports = KafkaWebhookService;
