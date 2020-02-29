@@ -2,7 +2,7 @@
 
 const EventEmitter = require('events');
 const kafka = require('kafka-node');
-const webhookService = require('../services/webhook');
+const WebhookService = require('../services/webhook');
 
 class KafkaWebhookService extends EventEmitter {
     constructor(topic, executeJob) {
@@ -21,6 +21,7 @@ class KafkaWebhookService extends EventEmitter {
             fetchMaxBytes: 1024,
         };
 
+        this.webhookService = new WebhookService('pending-webhooks');
         this.kafkaConsumer = new kafka.ConsumerGroup(
             kafkaDefaultOptions,
             topic,
@@ -72,7 +73,7 @@ async function onMessage(message) {
         console.log(
             `Error, reenqueueing partition: ${message.partition}, offset: ${message.offset}`,
         );
-        await webhookService.enqueueWebhook(
+        await this.webhookService.enqueueWebhook(
             message.value.path,
             message.value.body,
             message.value.headers,

@@ -2,7 +2,7 @@ const WebhookService = require('../../services/webhook');
 
 class WebhookController {
     constructor() {
-        this.webHookservice = new WebhookService();
+        this.webHookservice = new WebhookService('pending-webhooks');
     }
 
     async post(req, res) {

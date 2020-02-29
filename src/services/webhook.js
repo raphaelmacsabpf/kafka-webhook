@@ -1,7 +1,5 @@
 const kafka = require('kafka-node');
 
-const KAFKA_TOPIC = 'pending-webhooks';
-
 const kafkaClient = new kafka.KafkaClient({
     kafkaHost: process.env.KAFKA_HOST,
 });
@@ -10,9 +8,13 @@ const kafkaProducer = new kafka.Producer(kafkaClient, {
 });
 
 class WebhookService {
+    constructor(kafkaTopic) {
+        this.kafkaTopic = kafkaTopic;
+    }
+
     async enqueueWebhook(path, body, headers) {
         const payload = {
-            topic: KAFKA_TOPIC,
+            topic: this.kafkaTopic,
             messages: JSON.stringify({ id: Date.now(), path, body, headers }),
         };
 
