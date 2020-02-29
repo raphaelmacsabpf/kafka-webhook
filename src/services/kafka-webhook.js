@@ -16,7 +16,7 @@ class KafkaWebhookService extends EventEmitter {
             sessionTimeout: 30000,
             protocol: ['roundrobin'],
             fromOffset: 'latest',
-            outOfRangeOffset: 'earliest' ,
+            outOfRangeOffset: 'earliest',
             fetchMaxBytes: 1024
         };
 
@@ -45,7 +45,10 @@ async function onMessage(message) {
     this.pendingMessages ++;
     console.log(`Received message, partition: ${message.partition}, offset: ${message.offset}`);
     
-    if(consumerHasToPauseWork.call(this)) {
+    const consumerHasToPauseWork = this.pendingMessages >= 100 
+                                   && this.consumerPaused == false;
+
+    if(consumerHasToPauseWork) {
         console.log('Consumer paused');
         this.consumerPaused = true;
         setTimeout(() => {
@@ -64,24 +67,18 @@ async function onMessage(message) {
 
 function handleConsumerState() {
     const checkIntervalRef = setInterval(() => {
-        if(consumerHasToResumeWork.call(this)) {
+        const consumerHasToResumeWork = this.consumerPaused
+                                        && (Date.now() - this.lastMessageTimestamp) > 1000 
+                                        && this.pendingMessages <= 50;
+
+        if(consumerHasToResumeWork) {
             this.consumerPaused = false;
             this.kafkaConsumer.resume();
             console.log('Consumer resumed');
        }
+
        handleConsumerClosingStrategy.call(this, checkIntervalRef);
     }, 100);
-}
-
-function consumerHasToResumeWork() {    
-    return this.consumerPaused
-           && (Date.now() - this.lastMessageTimestamp) > 1000 
-           && this.pendingMessages <= 50;
-}
-
-function consumerHasToPauseWork() {
-    return this.pendingMessages >= 100 
-          && this.consumerPaused == false;
 }
 
 function handleConsumerClosingStrategy(checkIntervalRef) {
