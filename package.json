@@ -10,7 +10,10 @@
     "serverless-http": "^2.3.1"
   },
   "devDependencies": {
-    "eslint": "^6.8.0",
+    "eslint": "6.8.0",
+    "eslint-config-prettier": "6.10.0",
+    "eslint-plugin-prettier": "3.1.2",
+    "prettier": "1.19.1",
     "serverless-offline": "^5.12.1"
   },
   "scripts": {
