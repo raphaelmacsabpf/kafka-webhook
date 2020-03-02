@@ -1,8 +1,11 @@
+const kafkaConfig = require('../../../config/kafka');
 const WebhookService = require('../../services/webhook');
 
 class WebhookController {
     constructor() {
-        this.webhookService = new WebhookService('pending-webhooks');
+        this.webhookService = new WebhookService(
+            kafkaConfig.PENDING_WEBHOOKS_TOPIC,
+        );
     }
 
     async post(req, res) {

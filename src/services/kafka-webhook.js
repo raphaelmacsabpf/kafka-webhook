@@ -1,14 +1,15 @@
 'use strict';
 
+const kafkaConfig = require('../../config/kafka');
 const EventEmitter = require('events');
-const kafka = require('kafka-node');
+const Kafka = require('kafka-node');
 const WebhookService = require('../services/webhook');
 
 class KafkaWebhookService extends EventEmitter {
     constructor(topic, executeJob) {
         super();
         const kafkaDefaultOptions = {
-            kafkaHost: '127.0.0.1:9092',
+            kafkaHost: kafkaConfig.KAFKA_BROKER_HOST,
             groupId:
                 '123456' /* All consumers with same groupId will fetch messages from different partitions */,
             autoCommit: true,
@@ -21,8 +22,8 @@ class KafkaWebhookService extends EventEmitter {
             fetchMaxBytes: 1024,
         };
 
-        this.webhookService = new WebhookService('pending-webhooks');
-        this.kafkaConsumer = new kafka.ConsumerGroup(
+        this.webhookService = new WebhookService(topic);
+        this.kafkaConsumer = new Kafka.ConsumerGroup(
             kafkaDefaultOptions,
             topic,
         );
