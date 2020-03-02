@@ -1,25 +1,29 @@
 const kafka = require('kafka-node');
-
-const kafkaClient = new kafka.KafkaClient({
-    kafkaHost: process.env.KAFKA_HOST,
-});
-const kafkaProducer = new kafka.Producer(kafkaClient, {
-    partitionerType: 2 /* cyclic partitioner */,
-});
+const kafkaConfig = require('../../config/kafka');
 
 class WebhookService {
     constructor(kafkaTopic) {
         this.kafkaTopic = kafkaTopic;
+
+        const kafkaClient = new kafka.KafkaClient({
+            kafkaHost: kafkaConfig.KAFKA_BROKER_HOST,
+        });
+        this.kafkaProducer = new kafka.Producer(kafkaClient, {
+            partitionerType: 2 /* cyclic partitioner */,
+        });
     }
 
-    async enqueueWebhook(path, body, headers) {
+    async enqueueWebhook(remainingTries, path, body, headers) {
         const payload = {
             topic: this.kafkaTopic,
-            messages: JSON.stringify({ id: Date.now(), path, body, headers }),
+            messages: JSON.stringify({
+                remainingTries,
+                webhook: { path, body, headers },
+            }),
         };
 
         return new Promise((resolve, reject) => {
-            kafkaProducer.send([payload], (err, data) => {
+            this.kafkaProducer.send([payload], (err, data) => {
                 if (err) {
                     console.log(err);
                     reject();

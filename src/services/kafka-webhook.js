@@ -23,10 +23,10 @@ class KafkaWebhookService extends EventEmitter {
         };
 
         this.webhookService = new WebhookService(topic);
-        this.kafkaConsumer = new Kafka.ConsumerGroup(
-            kafkaDefaultOptions,
+        this.kafkaConsumer = new Kafka.ConsumerGroup(kafkaDefaultOptions, [
             topic,
-        );
+            'retry-webhooks',
+        ]);
         this.consumerPaused = false;
         this.pendingMessages = 0;
         this.lastMessageTimestamp = Date.now();
@@ -70,21 +70,39 @@ async function onMessage(message) {
         }, 1);
     }
 
-    await this.executeJob().catch(async () => {
-        console.log(
-            `Error, reenqueueing partition: ${message.partition}, offset: ${message.offset}`,
-        );
-        await this.webhookService.enqueueWebhook(
-            message.value.path,
-            message.value.body,
-            message.value.headers,
-        );
+    const messageValue = JSON.parse(message.value);
+    let errorTryingReenqueue = false;
+    await this.executeJob(messageValue).catch(async reason => {
+        if (reason.response) {
+            console.log(
+                `Request failed to: ${messageValue.webhook.path}, statusCode: ${reason.response.status}, remainingTries: ${messageValue.remainingTries}`,
+            );
+        } else {
+            console.log(
+                `Request error to: ${messageValue.webhook.path}, error: ${reason}}, remainingTries: ${messageValue.remainingTries}`,
+            );
+        }
+
+        if (messageValue.remainingTries > 0) {
+            this.webhookService.enqueueWebhook(
+                messageValue.remainingTries - 1,
+                messageValue.webhook.path,
+                messageValue.webhook.body,
+                messageValue.webhook.headers,
+            );
+            console.log('Webhook reenqueued');
+        } else {
+            errorTryingReenqueue = true;
+            console.log('Max attempts reached');
+        }
     });
 
     this.pendingMessages--;
-    console.log(
-        `Finished, partition: ${message.partition}, offset: ${message.offset}`,
-    );
+    if (errorTryingReenqueue == false) {
+        console.log(
+            `Finished, partition: ${message.partition}, offset: ${message.offset}`,
+        );
+    }
 }
 
 function handleConsumerState() {

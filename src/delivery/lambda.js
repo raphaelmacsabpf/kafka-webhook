@@ -1,5 +1,5 @@
 'use strict';
-
+const axios = require('axios').default;
 const kafkaConfig = require('../../config/kafka');
 const KafkaWebhookService = require('../services/kafka-webhook');
 
@@ -8,9 +8,10 @@ module.exports.handler = async (event, context, callback) => {
 
     const kafkaWebhook = new KafkaWebhookService(
         kafkaConfig.PENDING_WEBHOOKS_TOPIC,
-        function() {
-            return new Promise((resolve, reject) => {
-                setTimeout(resolve, 2000);
+        data => {
+            const webhook = data.webhook;
+            return axios.post(webhook.path, webhook.body, {
+                headers: webhook.headers,
             });
         },
     );
